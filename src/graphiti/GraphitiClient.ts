@@ -30,7 +30,7 @@ export class GraphitiClient {
       // const { Graphiti } = await import('graphiti-core');
       
       // For now, simulate the client initialization
-      console.log(`Initializing Graphiti client for namespace: ${this.config.namespace}`);
+      console.log(`Initializing Graphiti client`);
       console.log(`Neo4j URI: ${this.config.neo4jUri}`);
       
       // this.client = new Graphiti(
@@ -39,8 +39,7 @@ export class GraphitiClient {
       //   this.config.neo4jPassword
       // );
       
-      // Initialize namespace-specific graph
-      await this.createNamespace(this.config.namespace);
+      // Namespaces will be created on-demand per repository
       
     } catch (error) {
       console.error('Failed to initialize Graphiti client:', error);
@@ -72,9 +71,9 @@ export class GraphitiClient {
   }
 
   /**
-   * Store code representation in knowledge graph
+   * Store code representation in knowledge graph with specific namespace
    */
-  async storeCodeRepresentation(code: CodeRepresentation): Promise<void> {
+  async storeCodeRepresentation(code: CodeRepresentation, namespace?: string): Promise<void> {
     try {
       const episodeData = this.createEpisodeFromCode(code);
       
@@ -86,7 +85,7 @@ export class GraphitiClient {
       //   episode_body: JSON.stringify(episodeData),
       //   source: 'json',
       //   source_description: 'SACL Code Analysis',
-      //   group_id: this.config.namespace
+      //   group_id: namespace || this.config.namespace
       // });
       
     } catch (error) {
@@ -98,16 +97,16 @@ export class GraphitiClient {
   /**
    * Search for code using hybrid approach (semantic + keyword)
    */
-  async searchCode(query: string, limit: number = 10): Promise<CodeRepresentation[]> {
+  async searchCode(query: string, limit: number = 10, namespace?: string): Promise<CodeRepresentation[]> {
     try {
-      console.log(`Searching for: "${query}" in namespace: ${this.config.namespace}`);
+      console.log(`Searching for: "${query}" in namespace: ${namespace || this.config.namespace}`);
       
       // In real implementation:
       // const results = await this.client.search(
       //   query,
       //   {
       //     num_results: limit,
-      //     group_id: this.config.namespace
+      //     group_id: namespace || this.config.namespace
       //   }
       // );
       
@@ -510,7 +509,7 @@ export class GraphitiClient {
 }
 
 export interface GraphitiConfig {
-  namespace: string;
+  namespace?: string;  // Optional - namespaces provided per operation
   neo4jUri: string;
   neo4jUser: string;
   neo4jPassword: string;

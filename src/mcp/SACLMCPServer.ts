@@ -340,39 +340,94 @@ export class SACLMCPServer {
   }
 
   /**
+   * Validate required parameters and return clear error messages for LLMs
+   */
+  private validateParameters(toolName: string, args: any, required: string[]): { isValid: boolean; error?: string } {
+    for (const param of required) {
+      if (!args[param] || (typeof args[param] === 'string' && args[param].trim() === '')) {
+        return {
+          isValid: false,
+          error: `❌ Missing required parameter '${param}' for tool '${toolName}'. Please provide a valid ${param}.`
+        };
+      }
+    }
+    return { isValid: true };
+  }
+
+  /**
+   * Generate namespace from repository path
+   */
+  private generateNamespace(repositoryPath: string): string {
+    const normalizedPath = repositoryPath.replace(/[^a-zA-Z0-9]/g, '-');
+    const timestamp = Date.now().toString(36);
+    return `sacl-${normalizedPath}-${timestamp}`;
+  }
+
+  /**
    * Handle repository analysis tool
    */
   private async handleAnalyzeRepository(args: any): Promise<any> {
-    const { repositoryPath, incremental = false } = args;
+    try {
+      // Validate required parameters
+      const validation = this.validateParameters('analyze_repository', args, ['repositoryPath']);
+      if (!validation.isValid) {
+        return {
+          content: [{
+            type: 'text',
+            text: validation.error!
+          }]
+        };
+      }
 
-    console.log(`Analyzing repository: ${repositoryPath} (incremental: ${incremental})`);
+      const { repositoryPath, incremental = false } = args;
 
-    if (!incremental) {
-      // Full repository analysis
-      const stats = await this.saclProcessor!.processRepository();
-      
+      console.log(`Analyzing repository: ${repositoryPath} (incremental: ${incremental})`);
+
+      // Generate namespace for this repository
+      const namespace = this.generateNamespace(repositoryPath);
+
+      if (!incremental) {
+        // Full repository analysis with specific path and namespace
+        const stats = await this.saclProcessor!.processRepository(repositoryPath, namespace);
+        
+        return {
+          content: [{
+            type: 'text',
+            text: `📊 Repository Analysis Complete\n\n` +
+                  `**Repository:** ${repositoryPath}\n` +
+                  `**Namespace:** ${namespace}\n\n` +
+                  `**Processing Statistics:**\n` +
+                  `• Files processed: ${stats.filesProcessed}/${stats.totalFiles}\n` +
+                  `• Average bias score: ${stats.averageBiasScore.toFixed(3)}\n` +
+                  `• High bias files detected: ${stats.biasDetected}\n` +
+                  `• Processing time: ${(stats.processingTime / 1000).toFixed(1)}s\n\n` +
+                  `🔍 **SACL Framework Applied:**\n` +
+                  `• Textual bias detection completed\n` +
+                  `• Semantic augmentation applied\n` +
+                  `• Knowledge graph populated\n` +
+                  `• Ready for bias-aware code retrieval\n\n` +
+                  `Use 'query_code' to search with reduced textual bias.`
+          }]
+        };
+      } else {
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ Incremental analysis mode enabled for repository: ${repositoryPath}\n\n` +
+                  `File changes will be processed as they are reported through 'update_file' or 'update_files' tools.`
+          }]
+        };
+      }
+    } catch (error) {
+      console.error('Error in handleAnalyzeRepository:', error);
       return {
         content: [{
           type: 'text',
-          text: `Repository Analysis Complete\n\n` +
-                `📊 **Processing Statistics:**\n` +
-                `• Files processed: ${stats.filesProcessed}/${stats.totalFiles}\n` +
-                `• Average bias score: ${stats.averageBiasScore.toFixed(3)}\n` +
-                `• High bias files detected: ${stats.biasDetected}\n` +
-                `• Processing time: ${(stats.processingTime / 1000).toFixed(1)}s\n\n` +
-                `🔍 **SACL Framework Applied:**\n` +
-                `• Textual bias detection completed\n` +
-                `• Semantic augmentation applied\n` +
-                `• Knowledge graph populated\n` +
-                `• Ready for bias-aware code retrieval\n\n` +
-                `Use 'query_code' to search with reduced textual bias.`
-        }]
-      };
-    } else {
-      return {
-        content: [{
-          type: 'text',
-          text: `Incremental analysis enabled. File changes will be processed automatically.`
+          text: `❌ Repository analysis failed: ${error instanceof Error ? error.message : 'Unknown error occurred'}\n\n` +
+                `Please ensure:\n` +
+                `• Repository path exists and is accessible\n` +
+                `• Path contains valid code files\n` +
+                `• Neo4j database is running and accessible`
         }]
       };
     }
@@ -382,16 +437,31 @@ export class SACLMCPServer {
    * Handle code query tool
    */
   private async handleQueryCode(args: any): Promise<any> {
-    const { query, repositoryPath, maxResults = 10, includeContext = false } = args;
+    try {
+      // Validate required parameters
+      const validation = this.validateParameters('query_code', args, ['query', 'repositoryPath']);
+      if (!validation.isValid) {
+        return {
+          content: [{
+            type: 'text',
+            text: validation.error!
+          }]
+        };
+      }
 
-    console.log(`Code query: "${query}" (context: ${includeContext})`);
+      const { query, repositoryPath, maxResults = 10, includeContext = false } = args;
 
-    // Use enhanced query if context is requested
-    if (includeContext) {
-      return await this.handleQueryCodeWithContext({ query, repositoryPath, maxResults, includeRelated: true });
-    }
+      console.log(`Code query: "${query}" in repository: ${repositoryPath} (context: ${includeContext})`);
 
-    const results = await this.saclProcessor!.queryCode(query, maxResults);
+      // Use enhanced query if context is requested
+      if (includeContext) {
+        return await this.handleQueryCodeWithContext({ query, repositoryPath, maxResults, includeRelated: true });
+      }
+
+      // Generate namespace for this repository
+      const namespace = this.generateNamespace(repositoryPath);
+
+      const results = await this.saclProcessor!.queryCode(query, maxResults, repositoryPath, namespace);
 
     if (results.length === 0) {
       return {
@@ -434,6 +504,19 @@ export class SACLMCPServer {
         text: responseText
       }]
     };
+    } catch (error) {
+      console.error('Error in handleQueryCode:', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Code query failed: ${error instanceof Error ? error.message : 'Unknown error occurred'}\n\n` +
+                `Please ensure:\n` +
+                `• Repository "${args.repositoryPath || 'unknown'}" has been analyzed first using 'analyze_repository'\n` +
+                `• Query contains valid search terms\n` +
+                `• Neo4j database is accessible`
+        }]
+      };
+    }
   }
 
   /**
@@ -535,11 +618,23 @@ export class SACLMCPServer {
    * Handle update single file tool (NEW - Phase 6)
    */
   private async handleUpdateFile(args: any): Promise<any> {
-    const { filePath, changeType } = args;
+    try {
+      // Validate required parameters
+      const validation = this.validateParameters('update_file', args, ['filePath', 'changeType']);
+      if (!validation.isValid) {
+        return {
+          content: [{
+            type: 'text',
+            text: validation.error!
+          }]
+        };
+      }
 
-    console.log(`Update file: ${filePath} (${changeType})`);
+      const { filePath, changeType } = args;
 
-    const result = await this.saclProcessor!.updateFile(filePath, changeType);
+      console.log(`Update file: ${filePath} (${changeType})`);
+
+      const result = await this.saclProcessor!.updateFile(filePath, changeType);
 
     let responseText = `📝 **File Update Result**\n\n`;
     responseText += `**File:** ${filePath}\n`;
@@ -562,6 +657,19 @@ export class SACLMCPServer {
         text: responseText
       }]
     };
+    } catch (error) {
+      console.error('Error in handleUpdateFile:', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ File update failed: ${error instanceof Error ? error.message : 'Unknown error occurred'}\n\n` +
+                `Please ensure:\n` +
+                `• File path "${args.filePath || 'unknown'}" is valid and accessible\n` +
+                `• Change type "${args.changeType || 'unknown'}" is valid (created, modified, deleted)\n` +
+                `• File contains valid code for analysis`
+        }]
+      };
+    }
   }
 
   /**
@@ -728,11 +836,26 @@ export class SACLMCPServer {
    * Handle enhanced query with context tool (NEW - Phase 6)
    */
   private async handleQueryCodeWithContext(args: any): Promise<any> {
-    const { query, repositoryPath, maxResults = 10, includeRelated = true } = args;
+    try {
+      // Validate required parameters
+      const validation = this.validateParameters('query_code_with_context', args, ['query', 'repositoryPath']);
+      if (!validation.isValid) {
+        return {
+          content: [{
+            type: 'text',
+            text: validation.error!
+          }]
+        };
+      }
 
-    console.log(`Enhanced query with context: "${query}"`);
+      const { query, repositoryPath, maxResults = 10, includeRelated = true } = args;
 
-    const results = await this.saclProcessor!.queryCodeWithContext(query, maxResults);
+      console.log(`Enhanced query with context: "${query}" in repository: ${repositoryPath}`);
+
+      // Generate namespace for this repository
+      const namespace = this.generateNamespace(repositoryPath);
+
+      const results = await this.saclProcessor!.queryCodeWithContext(query, maxResults, repositoryPath, namespace);
 
     if (results.length === 0) {
       return {
@@ -797,6 +920,19 @@ export class SACLMCPServer {
         text: responseText
       }]
     };
+    } catch (error) {
+      console.error('Error in handleQueryCodeWithContext:', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Enhanced query failed: ${error instanceof Error ? error.message : 'Unknown error occurred'}\n\n` +
+                `Please ensure:\n` +
+                `• Repository "${args.repositoryPath || 'unknown'}" has been analyzed first using 'analyze_repository'\n` +
+                `• Query contains valid search terms\n` +
+                `• Neo4j database is accessible and contains relationship data`
+        }]
+      };
+    }
   }
 
   /**

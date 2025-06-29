@@ -31,20 +31,16 @@ export class SACLProcessor {
   }
 
   /**
-   * Initialize the SACL system for a repository
-   * Performs initial full scan as per requirements
+   * Initialize the SACL system
+   * No longer performs initial scan - repositories are processed on-demand
    */
   async initialize(): Promise<void> {
-    console.log(`Initializing SACL for repository: ${this.config.repositoryPath}`);
-    console.log(`Namespace: ${this.config.namespace}`);
+    console.log('Initializing SACL processor...');
     
     try {
-      // Perform initial full repository scan
-      await this.processRepository();
-      
-      // File watching removed - using explicit agent-controlled updates
-      
-      console.log('SACL initialization completed successfully');
+      // Initialize components only - repositories processed on-demand
+      console.log('SACL processor initialized successfully');
+      console.log('Ready to process repositories on-demand via MCP tools');
     } catch (error) {
       console.error('SACL initialization failed:', error);
       throw error;
@@ -52,9 +48,9 @@ export class SACLProcessor {
   }
 
   /**
-   * Process entire repository (initial scan)
+   * Process entire repository with specified path and namespace
    */
-  async processRepository(): Promise<ProcessingStats> {
+  async processRepository(repositoryPath: string, namespace: string): Promise<ProcessingStats> {
     const startTime = Date.now();
     const stats: ProcessingStats = {
       filesProcessed: 0,
@@ -66,7 +62,7 @@ export class SACLProcessor {
 
     try {
       // Get all code files in repository
-      const codeFiles = await this.codeAnalyzer.findCodeFiles(this.config.repositoryPath);
+      const codeFiles = await this.codeAnalyzer.findCodeFiles(repositoryPath);
       stats.totalFiles = codeFiles.length;
       
       console.log(`Found ${codeFiles.length} code files to process`);
@@ -85,8 +81,8 @@ export class SACLProcessor {
               stats.biasDetected++;
             }
             
-            // Store in knowledge graph
-            await this.graphitiClient.storeCodeRepresentation(processed);
+            // Store in knowledge graph with namespace
+            await this.graphitiClient.storeCodeRepresentation(processed, namespace);
             
             // Cache if enabled
             if (this.config.cacheEnabled) {
@@ -153,14 +149,14 @@ export class SACLProcessor {
   /**
    * Enhanced query with relationship context (NEW - Phase 5)
    */
-  async queryCodeWithContext(query: string, maxResults?: number): Promise<EnhancedRetrievalResult[]> {
+  async queryCodeWithContext(query: string, maxResults: number, repositoryPath: string, namespace: string): Promise<EnhancedRetrievalResult[]> {
     const limit = maxResults || this.config.maxResults;
     
     try {
-      console.log(`SACL Enhanced Query: "${query}"`);
+      console.log(`SACL Enhanced Query: "${query}" in namespace: ${namespace}`);
       
       // 1. Initial retrieval from knowledge graph
-      const initialResults = await this.graphitiClient.searchCode(query, limit * 2);
+      const initialResults = await this.graphitiClient.searchCode(query, limit * 2, namespace);
       
       if (initialResults.length === 0) {
         console.log('No initial results found');
@@ -183,14 +179,14 @@ export class SACLProcessor {
   /**
    * Query code using SACL-enhanced retrieval (basic version)
    */
-  async queryCode(query: string, maxResults?: number): Promise<RetrievalResult[]> {
+  async queryCode(query: string, maxResults: number, repositoryPath: string, namespace: string): Promise<RetrievalResult[]> {
     const limit = maxResults || this.config.maxResults;
     
     try {
-      console.log(`SACL Query: "${query}"`);
+      console.log(`SACL Query: "${query}" in namespace: ${namespace}`);
       
       // 1. Initial retrieval from knowledge graph
-      const initialResults = await this.graphitiClient.searchCode(query, limit * 2);
+      const initialResults = await this.graphitiClient.searchCode(query, limit * 2, namespace);
       
       if (initialResults.length === 0) {
         console.log('No initial results found');
