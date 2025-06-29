@@ -60,8 +60,6 @@ export interface BiasIndicator {
 }
 
 export interface SACLConfig {
-  repositoryPath: string;
-  namespace: string;
   llmModel: string;
   embeddingModel: string;
   biasThreshold: number;

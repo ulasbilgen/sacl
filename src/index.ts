@@ -17,8 +17,6 @@ async function main() {
 
     // Get configuration from environment variables
     const saclConfig: SACLConfig = {
-      repositoryPath: process.env.SACL_REPO_PATH || process.cwd(),
-      namespace: process.env.SACL_NAMESPACE || generateNamespace(),
       llmModel: process.env.SACL_LLM_MODEL || 'gpt-4',
       embeddingModel: process.env.SACL_EMBEDDING_MODEL || 'text-embedding-3-small',
       biasThreshold: parseFloat(process.env.SACL_BIAS_THRESHOLD || '0.5'),
@@ -27,10 +25,9 @@ async function main() {
     };
 
     const graphitiConfig: GraphitiConfig = {
-      namespace: saclConfig.namespace,
       neo4jUri: process.env.NEO4J_URI || 'bolt://localhost:7687',
       neo4jUser: process.env.NEO4J_USER || 'neo4j',
-      neo4jPassword: process.env.NEO4J_PASSWORD || 'password',
+      neo4jPassword: process.env.NEO4J_PASSWORD || '',
       openaiApiKey: process.env.OPENAI_API_KEY || ''
     };
 
@@ -38,10 +35,12 @@ async function main() {
     if (!graphitiConfig.openaiApiKey) {
       throw new Error('OPENAI_API_KEY environment variable is required');
     }
+    
+    if (!graphitiConfig.neo4jPassword) {
+      throw new Error('NEO4J_PASSWORD environment variable is required');
+    }
 
     console.log('📋 Configuration:');
-    console.log(`  Repository: ${saclConfig.repositoryPath}`);
-    console.log(`  Namespace: ${saclConfig.namespace}`);
     console.log(`  LLM Model: ${saclConfig.llmModel}`);
     console.log(`  Embedding Model: ${saclConfig.embeddingModel}`);
     console.log(`  Bias Threshold: ${saclConfig.biasThreshold}`);
