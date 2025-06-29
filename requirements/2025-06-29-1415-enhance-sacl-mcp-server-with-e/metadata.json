@@ -1,0 +1,23 @@
+{
+  "id": "e",
+  "started": "2025-06-29T14:15:35.298Z",
+  "lastUpdated": "2025-06-29T14:15:35.298Z",
+  "status": "active",
+  "phase": "discovery",
+  "progress": {
+    "discovery": {
+      "answered": 0,
+      "total": 5
+    },
+    "detail": {
+      "answered": 0,
+      "total": 5
+    }
+  },
+  "contextFiles": [],
+  "relatedFeatures": [],
+  "settings": {
+    "discoveryQuestions": 5,
+    "expertQuestions": 5
+  }
+}

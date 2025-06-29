@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  sacl-mcp-server:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SACL_REPO_PATH=/workspace
+      - SACL_NAMESPACE=${SACL_NAMESPACE:-sacl-default}
+      - SACL_LLM_MODEL=${SACL_LLM_MODEL:-gpt-4}
+      - SACL_EMBEDDING_MODEL=${SACL_EMBEDDING_MODEL:-text-embedding-3-small}
+      - SACL_BIAS_THRESHOLD=${SACL_BIAS_THRESHOLD:-0.5}
+      - SACL_MAX_RESULTS=${SACL_MAX_RESULTS:-10}
+      - SACL_CACHE_ENABLED=${SACL_CACHE_ENABLED:-true}
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-saclpassword}
+    volumes:
+      - ./workspace:/workspace:ro  # Mount your code repository here
+    depends_on:
+      - neo4j
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5.22.0
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    environment:
+      - NEO4J_AUTH=${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-saclpassword}
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
