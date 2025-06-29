@@ -523,9 +523,11 @@ export class SACLMCPServer {
    * Handle bias analysis tool
    */
   private async handleGetBiasAnalysis(args: any): Promise<any> {
-    const { filePath } = args;
+    try {
+      // filePath is optional for this tool - can analyze specific file or entire repository
+      const { filePath } = args;
 
-    const analysis = await this.saclProcessor!.getBiasAnalysis(filePath);
+      const analysis = await this.saclProcessor!.getBiasAnalysis(filePath);
 
     let responseText = `🧠 **SACL Bias Analysis**\n\n`;
     
@@ -567,13 +569,27 @@ export class SACLMCPServer {
         text: responseText
       }]
     };
+    } catch (error) {
+      console.error('Error in handleGetBiasAnalysis:', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Bias analysis failed: ${error instanceof Error ? error.message : 'Unknown error occurred'}\n\n` +
+                `Please ensure:\n` +
+                `• Repository has been analyzed using 'analyze_repository' first\n` +
+                `• If analyzing specific file, ensure it exists and has been processed\n` +
+                `• Neo4j database contains analysis data`
+        }]
+      };
+    }
   }
 
   /**
    * Handle system stats tool
    */
   private async handleGetSystemStats(): Promise<any> {
-    const stats = await this.saclProcessor!.getSystemStats();
+    try {
+      const stats = await this.saclProcessor!.getSystemStats();
 
     const responseText = `⚙️ **SACL System Statistics**\n\n` +
       `**Repository Processing:**\n` +
@@ -612,6 +628,19 @@ export class SACLMCPServer {
         text: responseText
       }]
     };
+    } catch (error) {
+      console.error('Error in handleGetSystemStats:', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ System stats retrieval failed: ${error instanceof Error ? error.message : 'Unknown error occurred'}\n\n` +
+                `Please ensure:\n` +
+                `• SACL processor is properly initialized\n` +
+                `• Neo4j database is accessible\n` +
+                `• System has processed at least one repository`
+        }]
+      };
+    }
   }
 
   /**
@@ -676,11 +705,32 @@ export class SACLMCPServer {
    * Handle update multiple files tool (NEW - Phase 6)
    */
   private async handleUpdateFiles(args: any): Promise<any> {
-    const { files } = args;
+    try {
+      // Validate required parameters
+      const validation = this.validateParameters('update_files', args, ['files']);
+      if (!validation.isValid) {
+        return {
+          content: [{
+            type: 'text',
+            text: validation.error!
+          }]
+        };
+      }
 
-    console.log(`Batch update: ${files.length} files`);
+      const { files } = args;
 
-    const result = await this.saclProcessor!.updateFiles(files);
+      if (!Array.isArray(files) || files.length === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Invalid 'files' parameter for tool 'update_files'. Please provide a non-empty array of file objects.`
+          }]
+        };
+      }
+
+      console.log(`Batch update: ${files.length} files`);
+
+      const result = await this.saclProcessor!.updateFiles(files);
 
     let responseText = `📁 **Batch File Update Result**\n\n`;
     responseText += `**Total Files:** ${result.totalFiles}\n`;
@@ -711,17 +761,42 @@ export class SACLMCPServer {
         text: responseText
       }]
     };
+    } catch (error) {
+      console.error('Error in handleUpdateFiles:', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Batch file update failed: ${error instanceof Error ? error.message : 'Unknown error occurred'}\n\n` +
+                `Please ensure:\n` +
+                `• All file paths in the array are valid and accessible\n` +
+                `• Change types are valid (created, modified, deleted)\n` +
+                `• Files contain valid code for analysis`
+        }]
+      };
+    }
   }
 
   /**
    * Handle get relationships tool (NEW - Phase 6)
    */
   private async handleGetRelationships(args: any): Promise<any> {
-    const { filePath, maxDepth = 3, relationshipTypes } = args;
+    try {
+      // Validate required parameters
+      const validation = this.validateParameters('get_relationships', args, ['filePath']);
+      if (!validation.isValid) {
+        return {
+          content: [{
+            type: 'text',
+            text: validation.error!
+          }]
+        };
+      }
 
-    console.log(`Get relationships: ${filePath}`);
+      const { filePath, maxDepth = 3, relationshipTypes } = args;
 
-    const result = await this.saclProcessor!.getRelationshipGraph(filePath, relationshipTypes);
+      console.log(`Get relationships: ${filePath}`);
+
+      const result = await this.saclProcessor!.getRelationshipGraph(filePath, relationshipTypes);
 
     let responseText = `🔗 **Code Relationships Analysis**\n\n`;
     responseText += `**File:** ${filePath}\n`;
@@ -765,15 +840,40 @@ export class SACLMCPServer {
         text: responseText
       }]
     };
+    } catch (error) {
+      console.error('Error in handleGetRelationships:', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Relationship analysis failed: ${error instanceof Error ? error.message : 'Unknown error occurred'}\n\n` +
+                `Please ensure:\n` +
+                `• File path "${args.filePath || 'unknown'}" exists and has been analyzed\n` +
+                `• Repository has been processed using 'analyze_repository' first\n` +
+                `• Neo4j database contains relationship data`
+        }]
+      };
+    }
   }
 
   /**
    * Handle get file context tool (NEW - Phase 6)
    */
   private async handleGetFileContext(args: any): Promise<any> {
-    const { filePath, includeSnippets = false } = args;
+    try {
+      // Validate required parameters
+      const validation = this.validateParameters('get_file_context', args, ['filePath']);
+      if (!validation.isValid) {
+        return {
+          content: [{
+            type: 'text',
+            text: validation.error!
+          }]
+        };
+      }
 
-    console.log(`Get file context: ${filePath}`);
+      const { filePath, includeSnippets = false } = args;
+
+      console.log(`Get file context: ${filePath}`);
 
     const relatedResult = await this.saclProcessor!.getRelatedComponents(filePath);
 
@@ -830,6 +930,19 @@ export class SACLMCPServer {
         text: responseText
       }]
     };
+    } catch (error) {
+      console.error('Error in handleGetFileContext:', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ File context analysis failed: ${error instanceof Error ? error.message : 'Unknown error occurred'}\n\n` +
+                `Please ensure:\n` +
+                `• File path "${args.filePath || 'unknown'}" exists and has been analyzed\n` +
+                `• Repository has been processed using 'analyze_repository' first\n` +
+                `• File contains valid code with relationships`
+        }]
+      };
+    }
   }
 
   /**
